@@ -1,15 +1,16 @@
-import requests, re
-from settings import *
+import requests, pprint
+from constants import *
 
 def get(kwargs):
     '''
     requests 请求封装
     '''
     # 根据参数判断 get 或 post 请求
-    method = requests.post if kwargs.get('data', 0) or kwargs.get('json', 0) else requests.get
+    pprint.pprint(kwargs)
+    method = requests.post if kwargs.get('data') or kwargs.get('json') else requests.get
     return method(**kwargs)
 
-def eget(upkd_kwargs={}, ajax=False, addon_headers={}, **kwargs):
+def eget(url, addon_headers=None, **req_kwargs):
     '''
     Easy get，进一步封装
     省略 Headers 配置
@@ -19,14 +20,13 @@ def eget(upkd_kwargs={}, ajax=False, addon_headers={}, **kwargs):
     kwargs: 关键词参数
     '''
     res = get({
+        'url': url,
         'headers': {
-            **base_headers,
-            **(page_headers if not ajax else ajax_headers),
-            **addon_headers
+            **BASE_HEADERS,
+            **(addon_headers or {})
         },
-        **upkd_kwargs,
-        **kwargs
+        **req_kwargs
     })
-    try: print(res.url, res.json())
+    try: pprint.pprint(res.json())
     except: pass
     return res

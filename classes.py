@@ -1,4 +1,3 @@
-import request, parsers
+import request, functions
 from time import time, sleep
-from settings import *
-
+from constants import *
