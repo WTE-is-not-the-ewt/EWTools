@@ -1,5 +1,5 @@
 from functions import *
-import json
+import json, time
 
 config = json.load(open('config.json'))
 send_batch({
