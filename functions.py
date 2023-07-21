@@ -3,7 +3,7 @@ from os import environ
 import json
 import hmac
 import time
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, parse_qs
 from hashlib import sha1
 from constants import *
 from request import eget
@@ -20,9 +20,7 @@ def get_signature(active, inactive=None, ineffective=None):
         'signVerDate': '2022-08-02',
         **(inactive or {})
     }
-    req = eget(SIGN_HMAC_URL, {
-        'Token': active['token']
-    }, params={
+    req = eget(SIGN_HMAC_URL, params={
         'userId': active['userID']
     })
     res = json.loads(req.text)
@@ -76,7 +74,7 @@ def get_packages(active, inactive=None, ineffective=None):
             "point_time_id": ineffective['unitTimeIndex'],
             "status": inactive['playStatusEnum'],
             "video_type": inactive['videoType'],
-            "speed": 1,
+            "speed": 2,
             "fallback": 0,
             "quality": '高清',
             "uuid": active['uuid']
@@ -142,3 +140,44 @@ def get_m3u8_via_simple_AES(required):
     }).content
     '''
     return mani_url
+
+dict_filter = lambda d,l,r:{r.get(k,k):d[k] for k in d if k in l}
+urlquery = lambda x:parse_qs(urlparse(x).query)
+
+def get_lessons(required):
+    return list(map(lambda x:{
+        **dict_filter(urlquery(urlparse(x['contentUrl']).fragment), (rename_mapping := {
+            'courseId': 'courseID',
+            'lessonId': 'lessonID'
+        }).keys(), rename_mapping),
+        'progress': x['ratio'],
+        'finished': x['finished'],
+        'type': x['contentTypeName']
+    }, eget(TASK_URL, {
+        'token': required['token']
+    }, json={
+        "homeworkIds": [
+            required['homeworkID']
+        ],
+        "sceneId": 0,
+        "pageIndex": 1,
+        "pageSize": 30,
+        "day": required['day'],
+        "dayId": required['dayID'],
+        "schoolId": required['schoolID']
+    }).json()['data']['data']))
+
+def get_days(required):
+    return map(lambda x:{
+        'day': x['day'],
+        'dayID': x['dayId']
+    }, eget(DAY_URL, {
+        'token': required['token']
+    }, json={
+        "homeworkIds": [
+            required['homeworkID']
+        ],
+        "sceneId": 0,
+        "taskDistributionTypeEnum": 1,
+        "schoolId": required['schoolID']
+    }).json()['data']['days'])

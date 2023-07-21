@@ -31,3 +31,5 @@ SIMPLE_AES_RSA_PUBLIC_KEY_B64ENCODED = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC3
 SIMPLE_AES_RSA_ENCRYPTED_KEY_AND_IV = RSA_ENCRYPTOR('0'*32, b64decode(SIMPLE_AES_RSA_PUBLIC_KEY_B64ENCODED))
 SIMPLE_AES_MANI_URL = 'https://playvideo.qcloud.com/getplayinfo/v4/{platformID}/{videoID}'
 SIMPLE_AES_M3U8_KEY_URL = 'https://drm.vod2.myqcloud.com/getlicense/v1'
+DAY_URL = 'https://gateway.ewt360.com/api/homeworkprod/homework/student/studentHomeworkDistribution'
+TASK_URL = 'https://gateway.ewt360.com/api/homeworkprod/homework/student/pageHomeworkTasks'
