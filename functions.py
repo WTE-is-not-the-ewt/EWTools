@@ -2,7 +2,7 @@ import execjs
 from os import environ
 import hmac
 import time
-from urllib.parse import urlencode, urlparse, parse_qs
+from urllib.parse import urlencode, urlparse, parse_qsl
 from hashlib import sha1
 from constants import *
 from request import eget
@@ -15,7 +15,7 @@ environ["EXECJS_RUNTIME"] = "JScript" # JavaScript Object 在 node 环境会报�
 script_eval = execjs.eval # 转换函数别名
 dict_reform = lambda d,r:{r[k]:d[k] for k in d if k in r}
 dict_filter = lambda d,l:{k:d[k] for k in d if k in l}
-urlquery = lambda x:parse_qs(urlparse(x).query)
+urlquery = lambda x:dict(parse_qsl(urlparse(x).query))
 
 def compute_password(active):
     password = active['password'].encode("utf-8")
@@ -157,7 +157,10 @@ def get_tasks(active):
     return list(map(lambda x:{
         **dict_reform(urlquery(urlparse(x['contentUrl']).fragment), {
             'courseId': 'courseID',
-            'lessonId': 'lessonID'
+            'lessonId': 'lessonID',
+            'paperId': 'paperID',
+            'fmId': 'FMID',
+            'homeworkId': 'homeworkID'
         }),
         'progress': x['ratio'],
         'finished': x['finished'],

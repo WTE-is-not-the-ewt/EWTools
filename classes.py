@@ -23,7 +23,11 @@ class Day(dict):
         super().__init__(active)
         self.user = user
     def get_tasks(self):
-        return {i['lessonID']: Lesson(i, self.user) for i in get_tasks({**self.user, **self})}
+        return {i[{
+            '课程讲': 'lessonID',
+            '试卷': 'paperID',
+            'FM': 'FMID'
+        }[i['type']]]: Lesson(i, self.user) for i in get_tasks({**self.user, **self})}
 
 class Lesson(dict):
     def __init__(self, active, user: User):
