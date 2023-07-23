@@ -17,6 +17,6 @@ class FullDuplex:
         try:
             while True:
                 msg = await websocket.receive_json()
-                try: await websocket.send_json(await self.routers[msg['servp']](self.states, websocket, **msg['params']))
+                try: await websocket.send_json(await self.routers[msg['servp']](self.states, websocket, **msg.get('params', {})))
                 except Exception as err: await websocket.send_json({'code': 500, 'exception': str(err), 'traceback': traceback.format_exc()})
         except WebSocketDisconnect: pass

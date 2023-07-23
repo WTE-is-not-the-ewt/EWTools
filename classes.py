@@ -16,7 +16,7 @@ class Homework(dict):
         super().__init__(active)
         self.user = user
     def get_days(self):
-        return {i['dayID']: Day({**i, **dict_filter(self, ['homeworkID'])}, self.user) for i in get_days({**self.user, **self})}
+        return {i['day']: Day({**i, **dict_filter(self, ['homeworkID'])}, self.user) for i in get_days({**self.user, **self})}
 
 class Day(dict):
     def __init__(self, active, user: User):
