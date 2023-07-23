@@ -1,32 +1,79 @@
 import execjs
 from os import environ
-import json
 import hmac
 import time
 from urllib.parse import urlencode, urlparse, parse_qs
 from hashlib import sha1
 from constants import *
 from request import eget
+from Crypto.Cipher import AES
+from binascii import b2a_hex
 
 scripts = execjs.compile(open('script.js', encoding='utf-8').read()) # 以 node 为环境编译爬虫所需 JavaScript 代码
 # 为转换 JavaScript Object 为 dict，需要 JavaScript 环境
 environ["EXECJS_RUNTIME"] = "JScript" # JavaScript Object 在 node 环境会报编码错误，转用 Windows 自带 JScript 环境
 script_eval = execjs.eval # 转换函数别名
+dict_reform = lambda d,r:{r[k]:d[k] for k in d if k in r}
+dict_filter = lambda d,l:{k:d[k] for k in d if k in l}
+urlquery = lambda x:parse_qs(urlparse(x).query)
 
-def get_signature(active, inactive=None, ineffective=None):
+def compute_password(active):
+    password = active['password'].encode("utf-8")
+    cryptor = AES.new(b"20171109124536982017110912453698", AES.MODE_CBC, iv=b"2017110912453698")
+    pad = 16 - len(password) % 16
+    password += (chr(pad) * pad).encode("utf-8")
+    return b2a_hex(cryptor.encrypt(password)).decode("utf-8").upper()
+
+def get_token(active):
+    return dict_reform(eget(LOGIN_URL, json={
+        "platform": 1,
+        "userName": active['account'],
+        "password": compute_password(active),
+        "autoLogin": True
+    }).json()['data'], {
+        'userId': 'userID',
+        'token': 'token'
+    })
+
+def get_school(active):
+    return dict_reform(eget(BOUND_INFO_URL, {
+        'Token': active['token']
+    }).json()['data'], {
+        'schoolId': 'schoolID',
+        'schoolName': 'schoolName'
+    })
+
+def get_homeworks(active):
+    return list(map(lambda x:dict_reform(x, {
+        'homeworkId': 'homeworkID',
+        'title': 'title',
+        'teacherName': 'releaser'
+    }), eget(HOMEWORK_URL, {
+        'Token': active['token']
+    }, json={
+        "subject": None,
+        "type": None,
+        "status": 2,
+        "pageIndex": 1,
+        "pageSize": 20,
+        "schoolId": active['schoolID']
+    }).json()['data']))
+
+def get_secret(active):
+    return dict_reform(eget(SIGN_HMAC_URL, params={
+        'userId': active['userID']
+    }).json()['data'], {
+        'sessionId': 'sessionID',
+        'secret': 'secret'
+    })
+
+def compute_signature(active):
     inactive = {
         'signMethod': 'HMAC-SHA1',
         'signVer': '1.0',
         'signVerDate': '2022-08-02',
-        **(inactive or {})
     }
-    req = eget(SIGN_HMAC_URL, params={
-        'userId': active['userID']
-    })
-    res = json.loads(req.text)
-    active.setdefault('sessionID', res["data"]["sessionId"])
-    secret = res["data"]["secret"]
-    key = urlencode({
+    return hmac.new(active['secret'].encode(), urlencode({
         'action': 2,
         'duration': active['stayTime'],
         'mstid': active['token'],
@@ -34,30 +81,37 @@ def get_signature(active, inactive=None, ineffective=None):
         'signatureVersion': inactive['signVer'],
         'timestamp': active['timestamp'],
         'version': inactive['signVerDate'] 
-    })
-    hmac_code = hmac.new(secret.encode(), key.encode(), sha1)
-    return hmac_code.hexdigest()
+    }).encode(), sha1).hexdigest()
 
-def get_packages(active, inactive=None, ineffective=None):
+def send_batch(active):
     inactive = {
         'videoType': 1,
-        'playStatusEnum': 1,
-        **(inactive or {})
+        'playStatusEnum': 1
     }
     ineffective = {
         'unitTime': 60000,
         'unitTimeIndex': 1,
-        "totalUnitTime": 15,
-        **(ineffective or {})
+        "totalUnitTime": 15
     }
-    return {
+    eget('https://bfe.ewt360.com/monitor/web/collect/batch', {
+        'Token': active['token'],
+        'X-Bfe-Session-Id': active['sessionID']
+    }, params={
+        'TrVideoBizCode': 1013,
+        'TrFallback': 0,
+        'TrUserId': active['userID'],
+        'TrLessonId': active['lessonID'],
+        'TrUuId': active['uuid'],
+        'sdkVersion': VERSION,
+        '_': active['timestamp']
+    }, json={
         "CommonPackage": {
             "userid": active['userID'],
             "os": 'Windows',
             "resolution": '1920*1080',
             "mstid": active['token'],
             "browser": 'Edge',
-            "browser_ver": '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.82', # navigator.appVersion
+            "browser_ver": BROSWER_APP_VERSION,
             "playerType": 1,
             "sdkVersion": VERSION,
             "videoBizCode": "1013"
@@ -74,50 +128,110 @@ def get_packages(active, inactive=None, ineffective=None):
             "point_time_id": ineffective['unitTimeIndex'],
             "status": inactive['playStatusEnum'],
             "video_type": inactive['videoType'],
-            "speed": 2,
+            "speed": active['speed'],
             "fallback": 0,
             "quality": '高清',
             "uuid": active['uuid']
-        }]
-    }
-
-def send_batch(active, inactive=None, ineffective=None):
-    packages = get_packages(active, inactive, ineffective)
-    signature = get_signature(active, inactive, ineffective)
-    eget('https://bfe.ewt360.com/monitor/web/collect/batch', {
-        'Token': active['token'],
-        'X-Bfe-Session-Id': active['sessionID']
-    }, params={
-        'TrVideoBizCode': 1013,
-        'TrFallback': 0,
-        'TrUserId': active['userID'],
-        'TrLessonId': active['lessonID'],
-        'TrUuId': active['uuid'],
-        'sdkVersion': VERSION,
-        '_': active['timestamp']
-    }, json={
-        **packages,
+        }],
         "sn": "ewt_web_video_detail",
-        "signature": signature,
+        "signature": compute_signature(active),
         '_': active['timestamp']
     })
 
-def get_m3u8_via_simple_AES(required):
+def get_days(active):
+    return list(map(lambda x:{
+        'day': x['day'],
+        'dayID': x['dayId']
+    }, eget(DAY_URL, {
+        'token': active['token']
+    }, json={
+        "homeworkIds": [
+            active['homeworkID']
+        ],
+        "sceneId": 0,
+        "taskDistributionTypeEnum": 1,
+        "schoolId": active['schoolID']
+    }).json()['data']['days']))
+
+def get_tasks(active):
+    return list(map(lambda x:{
+        **dict_reform(urlquery(urlparse(x['contentUrl']).fragment), {
+            'courseId': 'courseID',
+            'lessonId': 'lessonID'
+        }),
+        'progress': x['ratio'],
+        'finished': x['finished'],
+        'type': x['contentTypeName']
+    }, eget(TASK_URL, {
+        'token': active['token']
+    }, json={
+        "homeworkIds": [
+            active['homeworkID']
+        ],
+        "sceneId": 0,
+        "pageIndex": 1,
+        "pageSize": 30,
+        "day": active['day'],
+        "dayId": active['dayID'],
+        "schoolId": active['schoolID']
+    }).json()['data']['data']))
+
+def get_test(active):
+    return dict_reform(eget(TEST_URL, {
+        'Token': active['token']
+    }, json={
+        'schoolId': active['schoolID'],
+        'homeworkId': active['homeworkID'],
+        'lessonIdList': [
+            active['lessonID']
+        ]
+    }).json()['data'][0]['studyTest'], {
+        'paperId': 'paperID'
+    })
+
+def get_report(active):
+    dict_reform(eget(PAPER_REPORT_URL, {
+        'Token': active['token']
+    }, params={
+        'paperId': active['paperID'],
+        'platform': 1,
+        'isRepeat': 1,
+        'bizCode': '204'
+    }).json()['data'], {
+        'finish': 'finished',
+        'reportId': 'reportID'
+    })
+
+def get_paper(active):
+    question_handler = lambda x:{**(obj := dict_reform(x, {
+        'rightAnswer': 'answer',
+        'questionContent': 'content',
+        'childQuestions': 'children',
+        'analyse': 'explain'
+    })), 'children': list(map(question_handler, obj['children']))}
+    return list(map(question_handler, eget(PAPER_ANSWER_URL, {
+        'Token': active['token']
+    }, params={
+        'reportId': active['reportID'],
+        'bizCode': '204'
+    }).json()['data']['questions']))
+
+def get_m3u8_via_simple_AES(active):
     player_token = eget(PLAYER_TOKEN_URL, json={
-        'lessonId': required['lessonID'],
-        'schoolId': required['schoolID'],
+        'lessonId': active['lessonID'],
+        'schoolId': active['schoolID'],
         'type': 1
     }, headers={
-        'Token': required['token']
+        'Token': active['token']
     }).json()['data']
     video_info = eget(VIDEO_INFO_URL, params={
         'videoBizCode': 1013,
-        'lessonId': required['lessonID'],
+        'lessonId': active['lessonID'],
         'videoToken': player_token,
-        'sdkVersion': '3.0.7',
+        'sdkVersion': VERSION,
         '_': int(time.time() * 1000)
     }, headers={
-        'Token': required['token']
+        'Token': active['token']
     }).json()
     mani_info = eget(SIMPLE_AES_MANI_URL.format(
         platformID=video_info['data']['videoList'][1]['platFormUuId'],
@@ -140,44 +254,3 @@ def get_m3u8_via_simple_AES(required):
     }).content
     '''
     return mani_url
-
-dict_filter = lambda d,l,r:{r.get(k,k):d[k] for k in d if k in l}
-urlquery = lambda x:parse_qs(urlparse(x).query)
-
-def get_lessons(required):
-    return list(map(lambda x:{
-        **dict_filter(urlquery(urlparse(x['contentUrl']).fragment), (rename_mapping := {
-            'courseId': 'courseID',
-            'lessonId': 'lessonID'
-        }).keys(), rename_mapping),
-        'progress': x['ratio'],
-        'finished': x['finished'],
-        'type': x['contentTypeName']
-    }, eget(TASK_URL, {
-        'token': required['token']
-    }, json={
-        "homeworkIds": [
-            required['homeworkID']
-        ],
-        "sceneId": 0,
-        "pageIndex": 1,
-        "pageSize": 30,
-        "day": required['day'],
-        "dayId": required['dayID'],
-        "schoolId": required['schoolID']
-    }).json()['data']['data']))
-
-def get_days(required):
-    return map(lambda x:{
-        'day': x['day'],
-        'dayID': x['dayId']
-    }, eget(DAY_URL, {
-        'token': required['token']
-    }, json={
-        "homeworkIds": [
-            required['homeworkID']
-        ],
-        "sceneId": 0,
-        "taskDistributionTypeEnum": 1,
-        "schoolId": required['schoolID']
-    }).json()['data']['days'])

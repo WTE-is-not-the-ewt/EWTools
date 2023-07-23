@@ -21,8 +21,13 @@ AJAX_HEADERS = {
     'X-Requested-With': 'XMLHttpRequest'
 } # ajax headers
 
+BROSWER_APP_VERSION = BASE_HEADERS['User-Agent'].split('/', 1)[-1]
+
 VERSION = '3.0.7'
 
+LOGIN_URL = 'https://gateway.ewt360.com/api/authcenter/v2/oauth/login/account'
+BOUND_INFO_URL = 'https://web.ewt360.com/api/eteacherproduct/studentManage/getJoinedClassesAndExtendedInfo'
+HOMEWORK_URL = 'https://gateway.ewt360.com/api/homeworkprod/homework/student/getStudentHomeworkInfo'
 SIGN_HMAC_URL = 'http://bfe.ewt360.com/monitor/hmacSecret'
 PLAYER_TOKEN_URL = 'https://gateway.ewt360.com/api/homeworkprod/player/getPlayerToken'
 RSA_ENCRYPTOR = lambda plain_text, public_key:Cipher.new(RSA.importKey(public_key)).encrypt(bytes(plain_text.encode())).hex()
@@ -33,3 +38,6 @@ SIMPLE_AES_MANI_URL = 'https://playvideo.qcloud.com/getplayinfo/v4/{platformID}/
 SIMPLE_AES_M3U8_KEY_URL = 'https://drm.vod2.myqcloud.com/getlicense/v1'
 DAY_URL = 'https://gateway.ewt360.com/api/homeworkprod/homework/student/studentHomeworkDistribution'
 TASK_URL = 'https://gateway.ewt360.com/api/homeworkprod/homework/student/pageHomeworkTasks'
+TEST_URL = 'https://gateway.ewt360.com/api/homeworkprod/player/getPlayerLessonConfig'
+PAPER_REPORT_URL = 'https://web.ewt360.com/customerApi/api/studyprod/web/answer/report'
+PAPER_ANSWER_URL = 'https://web.ewt360.com/customerApi/api/studyprod/web/answer/webreport'
