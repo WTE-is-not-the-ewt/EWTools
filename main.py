@@ -15,6 +15,12 @@ async def login(states, conn, account, password):
     await conn.send_json({'hint': 'user info loaded'})
     return {'code': 0, 'msg': 'init func finished'}
 
+@fullduplex.serve('eval')
+async def get_and_set(states, conn, evaluatable):
+    try: res = eval(evaluatable, states)
+    except Exception as err: return {'code': 500, 'msg': f'{type(err).__name__}: {err}'}
+    return {'code': 0, 'msg': 'state set', 'result': res}
+
 @fullduplex.serve('update')
 async def get_and_set(states, conn, state_name, evaluatable):
     try: states[state_name] = eval(evaluatable, states)
