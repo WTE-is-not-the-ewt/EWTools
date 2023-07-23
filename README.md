@@ -1,5 +1,7 @@
 # EWTools
-易网通工具箱
+The WTE protocol impl for AnotherEWT backend running
+
+易网通精简的 API 爬虫，支持 WebSocket 可做应用解耦后端
 
 ### Features
 - 课程进度接口模拟（挂机刷课）
@@ -7,6 +9,4 @@
 
 ### TODOs
 待实现功能
-- 跳课（找漏洞）
-- 作业
-- M3U8 下载
+- 课程下载
