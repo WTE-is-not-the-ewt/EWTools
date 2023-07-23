@@ -9,21 +9,21 @@ class User(dict):
     def load_info(self):
         self.update(get_school(self))
     def get_homeworks(self):
-        return [Homework(i, self) for i in get_homeworks(self)]
+        return {i['homeworkID']: Homework(i, self) for i in get_homeworks(self)}
 
 class Homework(dict):
     def __init__(self, active, user: User):
         super().__init__(active)
         self.user = user
     def get_days(self):
-        return [Day({**i, **dict_filter(self, ['homeworkID'])}, self.user) for i in get_days({**self.user, **self})]
+        return {i['dayID']: Day({**i, **dict_filter(self, ['homeworkID'])}, self.user) for i in get_days({**self.user, **self})}
 
 class Day(dict):
     def __init__(self, active, user: User):
         super().__init__(active)
         self.user = user
     def get_tasks(self):
-        return [Lesson(i, self.user) for i in get_tasks({**self.user, **self})]
+        return {i['lessonID']: Lesson(i, self.user) for i in get_tasks({**self.user, **self})}
 
 class Lesson(dict):
     def __init__(self, active, user: User):
